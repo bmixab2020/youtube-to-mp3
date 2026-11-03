@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube to MP3</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3">
+</head>
+<body>
+  <div class="card">
+    <h1>YouTube to MP3</h1>
+    <p class="sub">Paste a YouTube link and convert it to an MP3 file.</p>
+    <form id="form">
+      <input id="url" type="url" placeholder="https://www.youtube.com/watch?v=..." required>
+      <button type="submit" id="convertBtn">Convert</button>
+      <button type="button" id="clearBtn">Clear</button>
+    </form>
+    <div id="status" class="status"></div>
+    <a id="download" class="download" style="display:none;">Download MP3</a>
+  </div>
+  <script>
+    const form = document.getElementById('form');
+    const status = document.getElementById('status');
+    const download = document.getElementById('download');
+    download.addEventListener('click', () => {
+      urlInput.value = '';
+      status.textContent = '';
+      download.style.display = 'none';
+      convertBtn.disabled = false;
+      clearBtn.disabled = false;
+    });
+    const convertBtn = document.getElementById('convertBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const urlInput = document.getElementById('url');
+    clearBtn.addEventListener('click', () => {
+      urlInput.value = '';
+      status.textContent = '';
+      download.style.display = 'none';
+      convertBtn.disabled = false;
+      clearBtn.disabled = false;
+      clearBtn.disabled = false;
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = urlInput.value.trim();
+      status.textContent = 'Starting...';
+      download.style.display = 'none';
+      convertBtn.disabled = true;
+      clearBtn.disabled = true;
+      try {
+        const res = await fetch('/convert', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({url})
+        });
+        const data = await res.json();
+        if (!res.ok) { status.textContent = data.error || 'Error'; convertBtn.disabled = false;
+      clearBtn.disabled = false; return; }
+        const jobId = data.job_id;
+        const poll = setInterval(async () => {
+          const r = await fetch('/status/' + jobId);
+          const d = await r.json();
+          if (d.status === 'done') {
+            clearInterval(poll);
+            status.textContent = 'Ready: ' + (d.title || 'audio');
+            download.href = d.download_url;
+            download.style.display = 'inline-block';
+            convertBtn.disabled = false;
+      clearBtn.disabled = false;
+          } else if (d.status === 'error') {
+            clearInterval(poll);
+            status.textContent = 'Error: ' + (d.error || 'unknown');
+            convertBtn.disabled = false;
+      clearBtn.disabled = false;
+          } else {
+            status.textContent = d.status + '...';
+          }
+        }, 1500);
+      } catch (err) {
+        status.textContent = 'Error: ' + err;
+        convertBtn.disabled = false;
+      clearBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
